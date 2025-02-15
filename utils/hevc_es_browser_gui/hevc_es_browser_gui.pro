@@ -45,6 +45,6 @@ SOURCES += CommonInfoViewer.cpp                          \
 	    ../../external/QHexView/src/QHexView.cpp
 
 
+LIBS += -L$$PWD/../../build/
 LIBS += -lhevcparser
-QMAKE_LIBDIR += ../../build
 
