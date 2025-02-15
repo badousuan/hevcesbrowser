@@ -9,10 +9,12 @@
 
 
 CommonInfoViewer::CommonInfoViewer(QWidget *pwgt):
-  QTableWidget(0, 4, pwgt)
+  QTableWidget(pwgt)
 {
   QStringList labels;
-  labels << "Offset" << "Length" << "Nal Unit Type" << "Info";
+  labels << "Offset" << "Length" << "Nal Type" << "Temprol Layer"<<"Layer ID"<< "Info";
+  setRowCount(0);
+  setColumnCount(labels.length());
   setHorizontalHeaderLabels(labels);
   setEditTriggers(QAbstractItemView::NoEditTriggers);
   setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -47,13 +49,26 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
 
   setItem(row, 2, new QTableWidgetItem(QString((ConvToString::NALUnitType(pNALUnit -> m_nalHeader.type)).c_str())));
 
+
   using namespace HEVC;
+
+  if( pNALUnit -> m_nalHeader.type == NAL_VPS ||
+      pNALUnit -> m_nalHeader.type == NAL_SPS ||
+      pNALUnit -> m_nalHeader.type == NAL_PPS
+      ) {
+      setItem(row, 3, new QTableWidgetItem(QString::number(0)));
+      setItem(row, 4, new QTableWidgetItem(QString::number(0)));
+  } else {
+      setItem(row, 3, new QTableWidgetItem(QString::number(pNALUnit -> m_nalHeader.temporal_id_plus1-1)));
+      setItem(row, 4, new QTableWidgetItem(QString::number(pNALUnit -> m_nalHeader.layer_id)));
+  }
+
 
   switch(pNALUnit -> m_nalHeader.type)
   {
     case NAL_VPS:
     {
-      setItem(row, 3, new QTableWidgetItem("Video parameter set"));
+      setItem(row, 5, new QTableWidgetItem("VPS"));
       std::shared_ptr<HEVC::VPS> pVPS = std::dynamic_pointer_cast<HEVC::VPS>(pNALUnit);
       using namespace HEVC;
       if(m_vpsMap.find(pVPS -> vps_video_parameter_set_id) == m_vpsMap.end() || !(*m_vpsMap[pVPS -> vps_video_parameter_set_id] == *pVPS))
@@ -67,7 +82,7 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
 
     case NAL_SPS:
     {
-      setItem(row, 3, new QTableWidgetItem("Sequence parameter set"));
+      setItem(row, 5, new QTableWidgetItem("SPS"));
       std::shared_ptr<HEVC::SPS> pSPS = std::dynamic_pointer_cast<HEVC::SPS>(pNALUnit);
 
       if(m_spsMap.find(pSPS -> sps_seq_parameter_set_id) == m_spsMap.end() || !(*m_spsMap[pSPS -> sps_seq_parameter_set_id] == *pSPS))
@@ -82,7 +97,7 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
 
     case NAL_PPS:
     {
-      setItem(row, 3, new QTableWidgetItem("Picture parameter set"));
+      setItem(row, 5, new QTableWidgetItem("PPS"));
       std::shared_ptr<HEVC::PPS> pPPS = std::dynamic_pointer_cast<HEVC::PPS>(pNALUnit);
 
       if(m_ppsMap.find(pPPS -> pps_pic_parameter_set_id) == m_ppsMap.end() || !(*m_ppsMap[pPPS -> pps_pic_parameter_set_id] == *pPPS))
@@ -98,7 +113,7 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
     case NAL_IDR_W_RADL:
     case NAL_IDR_N_LP:
     {
-      setItem(row, 3, new QTableWidgetItem("IDR Slice"));
+      setItem(row, 5, new QTableWidgetItem("IDR Slice"));
       break;
     }
 
@@ -121,19 +136,19 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
       std::shared_ptr<HEVC::Slice> pSlice = std::dynamic_pointer_cast<HEVC::Slice>(pNALUnit);
 
       if(pSlice -> dependent_slice_segment_flag)
-        setItem(row, 3, new QTableWidgetItem("Dependent Slice"));
+        setItem(row, 5, new QTableWidgetItem("Dependent Slice"));
       else
       {
         switch(pSlice -> slice_type)
         {
           case HEVC::Slice::B_SLICE:
-            setItem(row, 3, new QTableWidgetItem("B Slice"));
+            setItem(row, 5, new QTableWidgetItem("B Slice"));
             break;
           case HEVC::Slice::P_SLICE:
-            setItem(row, 3, new QTableWidgetItem("P Slice"));
+            setItem(row, 5, new QTableWidgetItem("P Slice"));
             break;
           case HEVC::Slice::I_SLICE:
-            setItem(row, 3, new QTableWidgetItem("I Slice"));
+            setItem(row, 5, new QTableWidgetItem("I Slice"));
             break;
         };
       }
@@ -142,38 +157,40 @@ void CommonInfoViewer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const 
 
     case NAL_AUD:
     {
-      setItem(row, 3, new QTableWidgetItem("Access unit delimiter"));
+      setItem(row, 5, new QTableWidgetItem("Access unit delimiter"));
       break;
     }
 
     case NAL_EOS_NUT:
     {
-      setItem(row, 3, new QTableWidgetItem("End of sequence"));
+      setItem(row, 5, new QTableWidgetItem("End of sequence"));
       break;
     }
 
     case NAL_EOB_NUT:
     {
-      setItem(row, 3, new QTableWidgetItem("End of bitstream"));
+      setItem(row, 5, new QTableWidgetItem("End of bitstream"));
       break;
     }
 
     case NAL_FD_NUT:
     {
-      setItem(row, 3, new QTableWidgetItem("Filler data"));
+      setItem(row, 5, new QTableWidgetItem("Filler data"));
       break;
     }
 
     case NAL_SEI_PREFIX:
     case NAL_SEI_SUFFIX:
     {
-      setItem(row, 3, new QTableWidgetItem("Supplemental enhancement information"));
+      setItem(row, 5, new QTableWidgetItem("SEI"));
       break;
     }
 
     default:
-      setItem(row, 3, new QTableWidgetItem(""));
+      setItem(row, 5, new QTableWidgetItem(""));
   };
+
+
 }
 
 

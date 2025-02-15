@@ -17,6 +17,8 @@
 #include <QMenuBar>
 #include <QProgressBar>
 #include <QCoreApplication>
+#include <QProcess>
+#include <QProgressDialog>
 
 
 #include "CentralWidget.h"
@@ -79,8 +81,6 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags):
 void MainWindow::process(const QString &fileName)
 {
   QFile file(fileName);
-
-
   if(!file.open(QIODevice::ReadOnly))
   {
     QMessageBox::critical(this, "File opening problem", "Problem with open file `" + fileName + "`for reading");
@@ -142,13 +142,14 @@ void MainWindow::process(const QString &fileName)
     std::size_t lastNalUOffset = lastOffset.toULongLong(NULL);
     pcntwgt -> m_pcomInfoViewer -> item(pcntwgt -> m_pcomInfoViewer -> rowCount() - 1, 1) -> setText(QString::number(position - lastNalUOffset));
   }
-
-  pcntwgt -> m_phexViewer -> setData((QHexView::DataStorage *)new QHexView::DataStorageFile(fileName));
+  file.seek(0);
+  pcntwgt -> m_phexViewer -> setData((QHexView::DataStorage *)new QHexView::DataStorageArray(file.readAll()));
 
   pprogressBar -> close();
   delete pprogressBar;
 
   HEVC::Parser::release(pparser);
+  file.close();
 }
 
 
@@ -180,11 +181,67 @@ void MainWindow::openFile(const QString &fileName)
       dynamic_cast<StreamInfoViewer *> (m_pinfoViewer) -> clear();
       dynamic_cast<HDRInfoViewer *> (m_phdrInfoViewer) -> clear();
 
-      process(fileName);
+      QString input_fileName = fileName;
+      QString tmp265File = "";
+      if(!fileName.endsWith(".265") && !fileName.endsWith(".h265")) {
+
+          QProcess process;
+          QString program = "ffmpeg";
+          QStringList arguments;
+          tmp265File = fileName+"_output.265";
+          arguments << "-i" << fileName << "-an" << "-vcodec" << "copy" << tmp265File << "-y";  // FFmpeg 参数
+          process.start(program, arguments);
+
+          // 创建进度对话框
+          QProgressDialog progressDialog("正在加载，请稍候...", "取消", 0, 0);
+          progressDialog.setWindowModality(Qt::WindowModal);
+          progressDialog.setMinimumDuration(0); // 立即显示
+          progressDialog.show();
+
+          // 等待进程完成
+          if (process.waitForFinished()) {
+              process.close();
+              progressDialog.close(); // 关闭加载对话框
+              // 检查进程退出状态
+              if (process.exitStatus() != QProcess::NormalExit) {
+                  QMessageBox::critical(this, "File convert to hevc nal stream faild", "Problem with open file `" + fileName + "`for reading");
+                  if(!tmp265File.isEmpty()) {
+                      QFile::remove(tmp265File);
+                  }
+
+                  qCritical() <<"ffmpeg convert failed\n";
+                  return;
+              } else {
+
+                   QFileInfo tmpFinfo(tmp265File);
+                   if (tmpFinfo.size() == 0) {
+                       if(!tmp265File.isEmpty()) {
+                           QFile::remove(tmp265File);
+                       }
+                       QMessageBox::critical(this, "File convert to hevc nal stream faild", "Problem with open file `" + fileName + "`for reading");
+                       return;
+                   }
+                   input_fileName = tmp265File;
+                   qInfo() <<"ffmpeg convert success\n";
+              }
+          } else {
+              QMessageBox::critical(this, "FFmpeg not found, install it first", "Problem with open file `" + fileName + "`for reading");
+              if(!tmp265File.isEmpty()) {
+                  QFile::remove(tmp265File);
+              }
+              return;
+          }
+
+      }
+
+      process(input_fileName);
       QFileInfo info(fileName);
       settings.setValue("MainWindow/PrevDir", info.absoluteDir().absolutePath());
 
       setWindowTitle(info.fileName());
+      if(!tmp265File.isEmpty()) {
+         QFile::remove(tmp265File);
+      }
     }
 }
 
