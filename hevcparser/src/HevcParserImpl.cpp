@@ -497,11 +497,11 @@ void HevcParserImpl::processSliceData(std::shared_ptr<Slice> pslice, BitstreamRe
 {
 }
 
-
+// F.7.3.2.1 Video parameter set RBSP, 7.4.3.1 Video parameter set RBSP semantics
 void HevcParserImpl::processVPS(std::shared_ptr<VPS> pvps, BitstreamReader &bs, const Parser::Info &info)
 {
   pvps -> vps_video_parameter_set_id = bs.getBits(4);
-  bs.getBits(2);
+  uint8_t vps_base_layer_flag = bs.getBits(2); // vps_base_layer_internal_flag and vps_base_layer_available_flag
   pvps -> vps_max_layers_minus1 = bs.getBits(6);
   pvps -> vps_max_sub_layers_minus1 = bs.getBits(3);
   pvps -> vps_temporal_id_nesting_flag = bs.getBits(1);

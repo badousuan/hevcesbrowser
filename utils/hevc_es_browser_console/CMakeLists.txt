@@ -7,10 +7,10 @@ set(SOURCES
 	../common/ConvToString.cpp
 )
 
-find_package(Boost COMPONENTS program_options system REQUIRED)
+#find_package(Boost COMPONENTS program_options system REQUIRED)
 
 include_directories(
-	${Boost_INCLUDE_DIRS}
+#	${Boost_INCLUDE_DIRS}
 	${CMAKE_CURRENT_SOURCE_DIR}/../../hevcparser/include/
 	${CMAKE_CURRENT_SOURCE_DIR}/../common/
 )

@@ -15,7 +15,7 @@ namespace HEVC
   class HevcParserImpl: public Parser
   {
     public:
-      virtual std::size_t process(const uint8_t *pdata, std::size_t size, std::size_t offset = 0);
+      virtual std::size_t process(const uint8_t *pdata, std::size_t size, std::size_t xoffset = 0);
 
       virtual void addConsumer(Consumer *pconsumer);
       virtual void releaseConsumer(Consumer *pconsumer);
