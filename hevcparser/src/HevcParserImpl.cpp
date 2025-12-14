@@ -502,10 +502,10 @@ void HevcParserImpl::processVPS(std::shared_ptr<VPS> pvps, BitstreamReader &bs, 
 {
   pvps -> vps_video_parameter_set_id = bs.getBits(4);
   uint8_t vps_base_layer_flag = bs.getBits(2); // vps_base_layer_internal_flag and vps_base_layer_available_flag
-  pvps -> vps_max_layers_minus1 = bs.getBits(6);
-  pvps -> vps_max_sub_layers_minus1 = bs.getBits(3);
-  pvps -> vps_temporal_id_nesting_flag = bs.getBits(1);
-  bs.getBits(16);
+  pvps -> vps_max_layers_minus1 = bs.getBits(6); // 空间层数
+  pvps -> vps_max_sub_layers_minus1 = bs.getBits(3); // 实时间层数
+  pvps -> vps_temporal_id_nesting_flag = bs.getBits(1);  // 描述 不同 temporal layer 之间是否满足“严格嵌套（nesting）”关系, 高层依赖低层，当 vps_temporal_id_nesting_flag == 1 时，解码器可以在任意访问点，安全地从“低时间层解码”切换到“高时间层解码”，而不需要额外的重同步或重新初始化。
+  bs.getBits(16); // vps_reserved_0xffff_16bits
 
   pvps -> profile_tier_level = processProfileTierLevel(pvps -> vps_max_sub_layers_minus1, bs, info);
 
@@ -518,13 +518,13 @@ void HevcParserImpl::processVPS(std::shared_ptr<VPS> pvps, BitstreamReader &bs, 
 
   for(std::size_t i = (pvps -> vps_sub_layer_ordering_info_present_flag ? 0 : pvps -> vps_max_sub_layers_minus1); i <= pvps -> vps_max_sub_layers_minus1; i++)
   {
-    pvps -> vps_max_dec_pic_buffering_minus1[i] = bs.getGolombU();
-    pvps -> vps_max_num_reorder_pics[i] = bs.getGolombU();
-    pvps -> vps_max_latency_increase_plus1[i] = bs.getGolombU();
+    pvps -> vps_max_dec_pic_buffering_minus1[i] = bs.getGolombU();  // 解码DPB最大长度
+    pvps -> vps_max_num_reorder_pics[i] = bs.getGolombU();  // 解码B帧重排序最大缓存长度
+    pvps -> vps_max_latency_increase_plus1[i] = bs.getGolombU(); // 最大延迟
   }
 
-  pvps -> vps_max_layer_id = bs.getBits(6);
-  pvps -> vps_num_layer_sets_minus1 = bs.getGolombU();
+  pvps -> vps_max_layer_id = bs.getBits(6);  // the maximum allowed value of nuh_layer_id of all NAL units
+  pvps -> vps_num_layer_sets_minus1 = bs.getGolombU();  // 在 SHVC / MV-HEVC 中：可能有多个 layer, 但并不是所有 layer 组合都合法或有意义. 例如：只解 Base Layer;解 Base + Enhancement Layer;解 View 0;解 View 0 + View 1. 这些组合需要在 VPS 中被明确声明. 集合包含哪些层由layer_id_included_flag保存，为1表示包j含在set i 中
 
   pvps -> layer_id_included_flag.resize(pvps -> vps_num_layer_sets_minus1+1);
 
@@ -969,8 +969,8 @@ ProfileTierLevel HevcParserImpl::processProfileTierLevel(std::size_t max_sub_lay
 
   ptl.toDefault();
 
-  ptl.general_profile_space = bs.getBits(2);
-  ptl.general_tier_flag = bs.getBits(1);
+  ptl.general_profile_space = bs.getBits(2); // HEVC=0
+  ptl.general_tier_flag = bs.getBits(1);  // 0 → Main tier;1 → High tier
   ptl.general_profile_idc = bs.getBits(5);
 
   for(std::size_t i=0; i<32; i++)
@@ -1720,11 +1720,11 @@ void HevcParserImpl::processUserDataUnregistered(std::shared_ptr<UserDataUnregis
     return;
 
   for(std::size_t i=0; i<16; i++)
-    pSeiPayload -> uuid_iso_iec_11578[i] = bs.getBits(8);
+    pSeiPayload -> uuid_iso_iec_11578[i] = bs.getBits(8); // 16 bytes UUID
 
   pSeiPayload -> user_data_payload_byte.resize(payloadSize - 16);
   for(std::size_t i=16; i<payloadSize; i++)
-    pSeiPayload -> user_data_payload_byte[i-16] = bs.getBits(8);
+    pSeiPayload -> user_data_payload_byte[i-16] = bs.getBits(8); // UUID payload
 }
 
 void HevcParserImpl::processBufferingPeriod(std::shared_ptr<BufferingPeriod> pSeiPayload, BitstreamReader &bs)
