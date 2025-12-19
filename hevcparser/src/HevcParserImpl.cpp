@@ -425,7 +425,7 @@ void HevcParserImpl::processSliceHeader(std::shared_ptr<Slice> pslice, Bitstream
 
       pslice -> five_minus_max_num_merge_cand = bs.getGolombU();
     }
-    pslice -> slice_qp_delta = bs.getGolombS();
+    pslice -> slice_qp_delta = bs.getGolombS(); // slice的qp偏移
 
     if(ppps -> pps_slice_chroma_qp_offsets_present_flag)
     {
@@ -463,7 +463,7 @@ void HevcParserImpl::processSliceHeader(std::shared_ptr<Slice> pslice, Bitstream
     if(pslice -> num_entry_point_offsets > 0)
     {
       pslice -> offset_len_minus1 = bs.getGolombU();
-      pslice -> entry_point_offset_minus1.resize(pslice -> num_entry_point_offsets);
+      pslice -> entry_point_offset_minus1.resize(pslice -> num_entry_point_offsets);  // 从当前 slice header 结束位置开始，到各个“entry point”之间的字节偏移量（减 1 表示）。解码器据此可以直接跳转到每个 tile 或 WPP 行的起始位置
 
       if(pslice -> offset_len_minus1 > 31)
       {
@@ -495,6 +495,7 @@ void HevcParserImpl::processSliceHeader(std::shared_ptr<Slice> pslice, Bitstream
 
 void HevcParserImpl::processSliceData(std::shared_ptr<Slice> pslice, BitstreamReader &bs, const Parser::Info &info)
 {
+    // todo 
 }
 
 // F.7.3.2.1 Video parameter set RBSP, 7.4.3.1 Video parameter set RBSP semantics
@@ -573,36 +574,57 @@ void HevcParserImpl::processVPS(std::shared_ptr<VPS> pvps, BitstreamReader &bs, 
 
 void HevcParserImpl::processSPS(std::shared_ptr<SPS> psps, BitstreamReader &bs, const Parser::Info &info)
 {
-  psps -> sps_video_parameter_set_id = bs.getBits(4);
-  psps -> sps_max_sub_layers_minus1 = bs.getBits(3);
-  psps -> sps_temporal_id_nesting_flag = bs.getBits(1);
+  psps -> sps_video_parameter_set_id = bs.getBits(4); // 参考的VPS的id
+  psps -> sps_max_sub_layers_minus1 = bs.getBits(3);  // sps_max_sub_layers_minus1 ≤ vps_max_sub_layers_minus1 VPS中声明 整个比特流可能出现的最大 temporal sub-layer 数；SPS中声明 当前序列（该 SPS）实际使用的 temporal sub-layer 数
+  psps -> sps_temporal_id_nesting_flag = bs.getBits(1); // 必须和vps_temporal_id_nesting_flag相同
   psps -> profile_tier_level = processProfileTierLevel(psps -> sps_max_sub_layers_minus1, bs, info);
 
-  psps -> sps_seq_parameter_set_id = bs.getGolombU();
+  psps -> sps_seq_parameter_set_id = bs.getGolombU(); // 本SPS的id
 //  psps -> sps_seq_parameter_set_id = 0;
   psps -> chroma_format_idc = bs.getGolombU();
-
+    /**
+    chroma_format_idc separate_colour_plane_flag Chroma format SubWidthC SubHeightC
+    0                 0                          Monochrome    1          1
+    1                 0                          4:2:0         2          2
+    2                 0                          4:2:2         2          1
+    3                 0                          4:4:4         1          1
+    3                 1                          4:4:4         1          1
+    */
   if(psps -> chroma_format_idc == 3)
     psps -> separate_colour_plane_flag = bs.getBits(1);
   else
     psps -> separate_colour_plane_flag = 0;
 
-  psps -> pic_width_in_luma_samples = bs.getGolombU();
-  psps -> pic_height_in_luma_samples = bs.getGolombU();
-  psps -> conformance_window_flag = bs.getBits(1);
+  psps -> pic_width_in_luma_samples = bs.getGolombU();      // 亮度宽度，shall be an integer multiple of MinCbSizeY.
+  psps -> pic_height_in_luma_samples = bs.getGolombU();     // 亮度高度，shall be an integer multiple of MinCbSizeY
+  psps -> conformance_window_flag = bs.getBits(1);          // 是否包含crop信息
 
   if(psps -> conformance_window_flag)
   {
-    psps -> conf_win_left_offset = bs.getGolombU();
+    psps -> conf_win_left_offset = bs.getGolombU();   // left to right from SubWidthC * conf_win_left_offset to pic_width_in_luma_samples − ( SubWidthC * conf_win_right_offset + 1 )
     psps -> conf_win_right_offset = bs.getGolombU();
-    psps -> conf_win_top_offset = bs.getGolombU();
+    psps -> conf_win_top_offset = bs.getGolombU();    // top to bottom from SubHeightC * conf_win_top_offset to pic_height_in_luma_samples − ( SubHeightC * conf_win_bottom_offset + 1 )
     psps -> conf_win_bottom_offset = bs.getGolombU();
   }
-
-  psps -> bit_depth_luma_minus8 = bs.getGolombU();
-  psps -> bit_depth_chroma_minus8 = bs.getGolombU();
-  psps -> log2_max_pic_order_cnt_lsb_minus4 = bs.getGolombU();
-  psps -> sps_sub_layer_ordering_info_present_flag = bs.getBits(1);
+    /*
+    MinCbLog2SizeY = log2_min_luma_coding_block_size_minus3 + 3                 (7-10)
+    CtbLog2SizeY = MinCbLog2SizeY + log2_diff_max_min_luma_coding_block_size    (7-11)
+    MinCbSizeY = 1 << MinCbLog2SizeY                                            (7-12)
+    CtbSizeY = 1 << CtbLog2SizeY                                                (7-13)
+    PicWidthInMinCbsY = pic_width_in_luma_samples / MinCbSizeY                  (7-14)
+    PicWidthInCtbsY = Ceil( pic_width_in_luma_samples ÷ CtbSizeY )              (7-15)
+    PicHeightInMinCbsY = pic_height_in_luma_samples / MinCbSizeY                (7-16)
+    PicHeightInCtbsY = Ceil( pic_height_in_luma_samples ÷ CtbSizeY )            (7-17)
+    PicSizeInMinCbsY = PicWidthInMinCbsY * PicHeightInMinCbsY                   (7-18)
+    PicSizeInCtbsY = PicWidthInCtbsY * PicHeightInCtbsY                         (7-19)
+    PicSizeInSamplesY = pic_width_in_luma_samples * pic_height_in_luma_samples  (7-20)
+    PicWidthInSamplesC = pic_width_in_luma_samples / SubWidthC                  (7-21)
+    PicHeightInSamplesC = pic_height_in_luma_samples / SubHeightC               (7-22)
+    */
+  psps -> bit_depth_luma_minus8 = bs.getGolombU();      // 亮度深度位数-8
+  psps -> bit_depth_chroma_minus8 = bs.getGolombU();    // 色度深度位数-8
+  psps -> log2_max_pic_order_cnt_lsb_minus4 = bs.getGolombU();  // MaxPicOrderCntLsb = 2^(log2_max_pic_order_cnt_lsb_minus4 + 4), 当 POC(图像序号) 递增超过 MaxPicOrderCntLsb-1 时，pic_order_cnt_lsb 会重新从 0 开始
+  psps -> sps_sub_layer_ordering_info_present_flag = bs.getBits(1);  // 后边3个sps_max_xxx信息是否存在
 
   psps -> sps_max_dec_pic_buffering_minus1.resize(psps -> sps_max_sub_layers_minus1 + 1, 0);
   psps -> sps_max_num_reorder_pics.resize(psps -> sps_max_sub_layers_minus1 + 1, 0);
@@ -612,14 +634,14 @@ void HevcParserImpl::processSPS(std::shared_ptr<SPS> psps, BitstreamReader &bs, 
       i<=psps -> sps_max_sub_layers_minus1;
       i++)
   {
-    psps -> sps_max_dec_pic_buffering_minus1[i] = bs.getGolombU();
-    psps -> sps_max_num_reorder_pics[i] = bs.getGolombU();
-    psps -> sps_max_latency_increase_plus1[i] = bs.getGolombU();
+    psps -> sps_max_dec_pic_buffering_minus1[i] = bs.getGolombU(); // 解码图像缓冲区（DPB - Decoded Picture Buffer）的容量限制,DPB 用于存储已解码但尚未输出或仍被参考的图像
+    psps -> sps_max_num_reorder_pics[i] = bs.getGolombU();  // 解码顺序（decoding order）与输出/显示顺序（output/display order）之间允许的最大差异程度,PTS重排
+    psps -> sps_max_latency_increase_plus1[i] = bs.getGolombU(); // 最大输出延迟帧数 = sps_max_num_reorder_pics + sps_max_latency_increase_plus1==0?0:(sps_max_latency_increase_plus1 - 1), sps_max_num_reorder_pics是重排序引入的基本延时帧数，sps_max_latency_increase_plus1是附加延迟帧数
   }
 
-  psps -> log2_min_luma_coding_block_size_minus3 = bs.getGolombU();
-  psps -> log2_diff_max_min_luma_coding_block_size = bs.getGolombU();
-  psps -> log2_min_transform_block_size_minus2 = bs.getGolombU();
+  psps -> log2_min_luma_coding_block_size_minus3 = bs.getGolombU();   // 最小亮度宏块尺寸:2^(log2_min_luma_coding_block_size_minus3+3)
+  psps -> log2_diff_max_min_luma_coding_block_size = bs.getGolombU(); // 最大亮度宏块尺寸:2^(log2_diff_max_min_luma_coding_block_size+log2_min_luma_coding_block_size_minus3+3)
+  psps -> log2_min_transform_block_size_minus2 = bs.getGolombU();    // 最小变换块尺寸
   psps -> log2_diff_max_min_transform_block_size = bs.getGolombU();
   psps -> max_transform_hierarchy_depth_inter = bs.getGolombU();
   psps -> max_transform_hierarchy_depth_intra = bs.getGolombU();
@@ -634,9 +656,9 @@ void HevcParserImpl::processSPS(std::shared_ptr<SPS> psps, BitstreamReader &bs, 
     }
   }
 
-  psps -> amp_enabled_flag = bs.getBits(1);
-  psps -> sample_adaptive_offset_enabled_flag = bs.getBits(1);
-  psps -> pcm_enabled_flag = bs.getBits(1);
+  psps -> amp_enabled_flag = bs.getBits(1);  // 控制非对称运动划分（Asymmetric Motion Partition，AMP） 功能是否启用
+  psps -> sample_adaptive_offset_enabled_flag = bs.getBits(1);  // 采样自适应是否开启
+  psps -> pcm_enabled_flag = bs.getBits(1);  // PCM模式是否开启
 
   if(psps -> pcm_enabled_flag)
   {
@@ -667,9 +689,9 @@ void HevcParserImpl::processSPS(std::shared_ptr<SPS> psps, BitstreamReader &bs, 
     }
   }
 
-  psps -> sps_temporal_mvp_enabled_flag = bs.getBits(1);
-  psps -> strong_intra_smoothing_enabled_flag = bs.getBits(1);
-  psps -> vui_parameters_present_flag = bs.getBits(1);
+  psps -> sps_temporal_mvp_enabled_flag = bs.getBits(1);  // 控制时域运动向量预测（Temporal Motion Vector Prediction，TMVP） 功能是否启用
+  psps -> strong_intra_smoothing_enabled_flag = bs.getBits(1); // 它控制强帧内平滑滤波功能是否启用。这是针对帧内预测的参考样本平滑处理技术
+  psps -> vui_parameters_present_flag = bs.getBits(1);  // 是否包含VUI信息
 
   if(psps -> vui_parameters_present_flag)
   {
@@ -971,18 +993,18 @@ ProfileTierLevel HevcParserImpl::processProfileTierLevel(std::size_t max_sub_lay
 
   ptl.general_profile_space = bs.getBits(2); // HEVC=0
   ptl.general_tier_flag = bs.getBits(1);  // 0 → Main tier;1 → High tier
-  ptl.general_profile_idc = bs.getBits(5);
+  ptl.general_profile_idc = bs.getBits(5); // 常见取值如 1=Main，2=Main10，3=Still Picture，真正的解码能力必须结合 compatibility 与 constraint flags 一起判断
 
   for(std::size_t i=0; i<32; i++)
-    ptl.general_profile_compatibility_flag[i] = bs.getBits(1);
+    ptl.general_profile_compatibility_flag[i] = bs.getBits(1); // general_profile_compatibility_flag[general_profile_idc] shall be equal to 1
 
-  ptl.general_progressive_source_flag = bs.getBits(1);
+  ptl.general_progressive_source_flag = bs.getBits(1); // 直行还是隔行
   ptl.general_interlaced_source_flag = bs.getBits(1);
   ptl.general_non_packed_constraint_flag = bs.getBits(1);
   ptl.general_frame_only_constraint_flag = bs.getBits(1);
   bs.getBits(32);
   bs.getBits(12);
-  ptl.general_level_idc = bs.getBits(8);
+  ptl.general_level_idc = bs.getBits(8); // general_level_idc = Level × 30 , 如123/30=4.1
 
   ptl.sub_layer_profile_present_flag.resize(max_sub_layers_minus1);
   ptl.sub_layer_level_present_flag.resize(max_sub_layers_minus1);
@@ -1048,18 +1070,28 @@ void HevcParserImpl::processPPS(std::shared_ptr<PPS> ppps, BitstreamReader &bs, 
 {
   ppps -> pps_pic_parameter_set_id = bs.getGolombU();
   ppps -> pps_seq_parameter_set_id  = bs.getGolombU();
-  ppps -> dependent_slice_segments_enabled_flag = bs.getBits(1);
+  ppps -> dependent_slice_segments_enabled_flag = bs.getBits(1);  // 所有 slice segment 都必须是 independent（即完整 slice）
 
-  ppps -> output_flag_present_flag = bs.getBits(1);
+  ppps -> output_flag_present_flag = bs.getBits(1);  // 这个字段主要用于 解码但不显示 的高级场景（例如参考帧管理、编码效率优化），在普通播放中通常被忽略或恒定为“显示”。
   ppps -> num_extra_slice_header_bits = bs.getBits(3);
   ppps -> sign_data_hiding_flag = bs.getBits(1);
   ppps -> cabac_init_present_flag = bs.getBits(1);
-  ppps -> num_ref_idx_l0_default_active_minus1 = bs.getGolombU();
+  ppps -> num_ref_idx_l0_default_active_minus1 = bs.getGolombU();  
+    /** 
+     当 slice header 不显式指定参考帧个数时，解码器就使用 PPS 中给出的 L0 默认参考帧数量,每个 slice 都需要知道 L0 / L1 各有多少个参考帧,如果 每个 slice 都显式携带num_ref_idx_l0_active_minus1,比特开销较大. 因此 HEVC 允许 在 PPS 中定义默认值,在 slice header 中仅在需要覆盖默认值时才显式信令。L0 用于前向预测（P/B slice），L1 仅用于后向预测（B slice）。在 slice header 中：
+        if (slice_type != I) {
+            if (num_ref_idx_active_override_flag)
+                num_ref_idx_l0_active_minus1
+            else
+                使用 PPS 中的 num_ref_idx_l0_default_active_minus1
+        }
+
+    **/
   ppps -> num_ref_idx_l1_default_active_minus1 = bs.getGolombU();
-  ppps -> init_qp_minus26  = bs.getGolombS();
+  ppps -> init_qp_minus26  = bs.getGolombS();   // 只作用于亮度（Y）Y slice的基准QP,
   ppps -> constrained_intra_pred_flag = bs.getBits(1);
-  ppps -> transform_skip_enabled_flag = bs.getBits(1);
-  ppps -> cu_qp_delta_enabled_flag = bs.getBits(1);
+  ppps -> transform_skip_enabled_flag = bs.getBits(1);  // 它控制 在特定条件下是否允许跳过整数变换，直接对残差进行量化/反量化，以提升某些内容类型的编码效率
+  ppps -> cu_qp_delta_enabled_flag = bs.getBits(1);  // 开启后，每个 CU 都可以携带一个 QP 偏移（delta），用于更精细的码率–画质分配；关闭时，一个 slice 内所有 CU 使用同一个 QP。
 
   if(ppps -> cu_qp_delta_enabled_flag)
     ppps -> diff_cu_qp_delta_depth = bs.getGolombU();
@@ -1331,7 +1363,7 @@ ShortTermRefPicSet HevcParserImpl::processShortTermRefPicSet(std::size_t stRpsId
 
 VuiParameters HevcParserImpl::processVuiParameters(std::size_t sps_max_sub_layers_minus1, BitstreamReader &bs)
 {
-  VuiParameters vui;
+   VuiParameters vui;
 
   vui.toDefault();
 
@@ -1358,11 +1390,20 @@ VuiParameters HevcParserImpl::processVuiParameters(std::size_t sps_max_sub_layer
   if(vui.overscan_info_present_flag)
     vui.overscan_appropriate_flag = bs.getBits(1);
 
+  /**
+   video_format Meaning
+        0       Component
+        1       PAL
+        2       NTSC
+        3       SECAM
+        4       MAC
+        5       Unspecified video format
+   */
   vui.video_format = 5;
-  vui.video_full_range_flag = 0;
-  vui.colour_primaries = 2;
-  vui.transfer_characteristics = 2;
-  vui.matrix_coeffs = 2;
+  vui.video_full_range_flag = 0;    // limit or full
+  vui.colour_primaries = 2;         // // 原色系数:2 Unspecified Table E.3 – Colour primaries interpretation using the colour_primaries syntax element
+  vui.transfer_characteristics = 2;  // OETF opto-electronic transfer characteristic, Table E.4 – Transfer characteristics interpretation using the transfer_characteristics syntax element
+  vui.matrix_coeffs = 2;  // 矩阵参数 kb,kr, 推导yuv转rgb矩阵
 
   vui.video_signal_type_present_flag = bs.getBits(1);
 
@@ -1381,8 +1422,8 @@ VuiParameters HevcParserImpl::processVuiParameters(std::size_t sps_max_sub_layer
 
   }
 
-  vui.chroma_sample_loc_type_top_field = 0;
-  vui.chroma_sample_loc_type_bottom_field = 0;
+  vui.chroma_sample_loc_type_top_field = 0;         // 隔行扫描使用
+  vui.chroma_sample_loc_type_bottom_field = 0;  // 隔行扫描使用
 
   vui.chroma_loc_info_present_flag = bs.getBits(1);
   if(vui.chroma_loc_info_present_flag)
