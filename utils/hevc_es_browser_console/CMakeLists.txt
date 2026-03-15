@@ -4,6 +4,7 @@ set(SOURCES
 	src/main.cpp
 	src/HEVCInfoWriter.cpp
 	src/HEVCInfoAltWriter.cpp
+	src/FrameDependencyAnalyzer.cpp
 	../common/ConvToString.cpp
 )
 
