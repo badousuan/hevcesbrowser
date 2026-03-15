@@ -6,6 +6,7 @@
 #include <map>
 #include <ostream>
 #include <set>
+#include <string>
 
 class FrameDependencyAnalyzer : public HEVC::Parser::Consumer {
 public:
@@ -17,11 +18,19 @@ public:
     void processRPS(std::shared_ptr<HEVC::Slice> pSlice);
 
 private:
+    struct FrameData {
+        HEVC::NALUnitType nalUnitType;
+        int sliceType;
+        int temporalId;
+        std::set<int> dependencies;
+    };
+
+    std::string sliceTypeToString(int sliceType);
+
     std::map<uint32_t, std::shared_ptr<HEVC::SPS>> m_spsMap;
     std::map<uint32_t, std::shared_ptr<HEVC::PPS>> m_ppsMap;
 
-    // Key: Frame POC, Value: Set of POCs of frames it depends on
-    std::map<int, std::set<int>> m_dependencies;
+    std::map<int, FrameData> m_frameData;
 
     int m_lastPoc;
 };

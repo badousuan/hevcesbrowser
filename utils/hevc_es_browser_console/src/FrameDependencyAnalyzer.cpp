@@ -1,5 +1,6 @@
 #include "FrameDependencyAnalyzer.h"
 #include <iostream>
+#include <ConvToString.h>
 
 void FrameDependencyAnalyzer::onNALUnit(std::shared_ptr<HEVC::NALUnit> pNALUnit, const HEVC::Parser::Info* pInfo) {
     switch (pNALUnit->m_nalHeader.type) {
@@ -69,6 +70,11 @@ void FrameDependencyAnalyzer::processRPS(std::shared_ptr<HEVC::Slice> pSlice) {
     }
     m_lastPoc = currentPoc;
 
+    FrameData& frameData = m_frameData[currentPoc];
+    frameData.nalUnitType = pSlice->m_nalHeader.type;
+    frameData.sliceType = pSlice->slice_type;
+    frameData.temporalId = pSlice->m_nalHeader.temporal_id_plus1 - 1;
+
     const HEVC::ShortTermRefPicSet* rps = nullptr;
     if (pSlice->short_term_ref_pic_set_sps_flag) {
         if (pSlice->short_term_ref_pic_set_idx < pSPS->short_term_ref_pic_set.size()) {
@@ -80,17 +86,12 @@ void FrameDependencyAnalyzer::processRPS(std::shared_ptr<HEVC::Slice> pSlice) {
 
     if (!rps) return;
 
-    // IMPORTANT FIX: If inter_ref_pic_set_prediction_flag is set, the RPS is predicted
-    // from another RPS. The parser may not fill num_negative_pics and num_positive_pics,
-    // leading to garbage values and a crash. We skip these for now.
     if (rps->inter_ref_pic_set_prediction_flag) {
-        std::cout << "Skipping predicted RPS for frame " << currentPoc << " (not implemented)." << std::endl;
         return;
     }
 
     std::set<int> dependencies;
 
-    // Negative POCs (Delta POCs are negative)
     for (uint32_t i = 0; i < rps->num_negative_pics; ++i) {
         if (i < rps->used_by_curr_pic_s0_flag.size() && rps->used_by_curr_pic_s0_flag[i]) {
             int poc = currentPoc - (rps->delta_poc_s0_minus1[i] + 1);
@@ -98,7 +99,6 @@ void FrameDependencyAnalyzer::processRPS(std::shared_ptr<HEVC::Slice> pSlice) {
         }
     }
 
-    // Positive POCs (Delta POCs are positive)
     for (uint32_t i = 0; i < rps->num_positive_pics; ++i) {
         if (i < rps->used_by_curr_pic_s1_flag.size() && rps->used_by_curr_pic_s1_flag[i]) {
             int poc = currentPoc + (rps->delta_poc_s1_minus1[i] + 1);
@@ -106,18 +106,34 @@ void FrameDependencyAnalyzer::processRPS(std::shared_ptr<HEVC::Slice> pSlice) {
         }
     }
 
-    // NOTE: Long-term references are not handled here.
+    frameData.dependencies = dependencies;
+}
 
-    m_dependencies[currentPoc] = dependencies;
+std::string FrameDependencyAnalyzer::sliceTypeToString(int sliceType) {
+    switch (sliceType) {
+        case HEVC::Slice::B_SLICE: return "B";
+        case HEVC::Slice::P_SLICE: return "P";
+        case HEVC::Slice::I_SLICE: return "I";
+        default: return "?";
+    }
 }
 
 void FrameDependencyAnalyzer::writeDependencies(std::ostream& out) {
-    out << "Frame Dependencies (POC -> depends on POCs):" << std::endl;
-    for (const auto& pair : m_dependencies) {
-        out << "Frame " << pair.first << " -> { ";
-        for (int poc : pair.second) {
-            out << poc << " ";
+    out << "Frame Dependencies (POC [Type(I/P/B),TID] -> depends on POCs):" << std::endl;
+    for (const auto& pair : m_frameData) {
+        out << "Frame " << pair.first
+            << " [" << ConvToString::NALUnitType(pair.second.nalUnitType)
+            << "(" << sliceTypeToString(pair.second.sliceType) << ")"
+            << ",TID=" << pair.second.temporalId << "] -> ";
+
+        if (pair.second.dependencies.empty()) {
+            out << "{ No Dependencies }" << std::endl;
+        } else {
+            out << "{ ";
+            for (int poc : pair.second.dependencies) {
+                out << poc << " ";
+            }
+            out << "}" << std::endl;
         }
-        out << "}" << std::endl;
     }
 }
