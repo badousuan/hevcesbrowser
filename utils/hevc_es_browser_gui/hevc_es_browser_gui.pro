@@ -20,6 +20,13 @@ gitinfo.target = gitinfo
 
 QMAKE_EXTRA_TARGETS += gitinfo
 
+macx {
+    LIBS -= -framework AGL
+    # 甚至可以更暴力一点，直接重置相关的 OpenGL 库变量
+    QMAKE_LIBS_OPENGL = -framework OpenGL
+    QMAKE_LIBS_OPENGL_QT = -framework OpenGL
+}
+
 # Input
 HEADERS += CommonInfoViewer.h                            \
 	    MainWindow.h                                     \

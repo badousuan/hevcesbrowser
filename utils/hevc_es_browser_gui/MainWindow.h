@@ -9,7 +9,7 @@ class MainWindow: public QMainWindow
 {
   Q_OBJECT
   public:
-    MainWindow(QWidget *parent = 0, Qt::WindowFlags flags = 0);
+    MainWindow(QWidget *parent = NULL, Qt::WindowFlags flags = Qt::WindowFlags());
     void dragEnterEvent(QDragEnterEvent *);
     void dropEvent(QDropEvent *);
     void openFile(const QString &fileName);

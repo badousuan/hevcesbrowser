@@ -1,1 +1,3 @@
+add_subdirectory(common)
 add_subdirectory(hevc_es_browser_console)
+add_subdirectory(hevc_es_browser_gui_wx)
