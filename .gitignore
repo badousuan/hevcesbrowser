@@ -10,3 +10,6 @@ utils/hevc_es_browser_gui/object_script.hevcesbrowser.Debug
 utils/hevc_es_browser_gui/object_script.hevcesbrowser.Release
 cmake-build*
 utils/build-hevc_es_browser_gui-Desktop_Qt*
+build_*
+.idea
+*.pdb
