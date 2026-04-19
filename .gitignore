@@ -13,3 +13,5 @@ utils/build-hevc_es_browser_gui-Desktop_Qt*
 build_*
 .idea
 *.pdb
+*.lib
+*.dll
