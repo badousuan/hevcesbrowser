@@ -128,7 +128,7 @@ std::vector<uint32_t> ProfileConformanceAnalyzer::rowHeightInLumaSamples(std::sh
     }
   }
 
-  for(std::size_t i=0; i <= pPPS -> num_tile_columns_minus1; i++)
+  for(std::size_t i=0; i <= pPPS -> num_tile_rows_minus1; i++)
     rowHeight[i] = rowHeight[i] << CtbLog2SizeY;
 
   return rowHeight;
@@ -282,7 +282,13 @@ void ProfileConformanceAnalyzer::checkMainPPS(std::shared_ptr<HEVC::PPS> pPPS, c
     bool bWarning = false;
     for(std::size_t i=0; i <= pPPS -> num_tile_columns_minus1; i++)
     {
-      if(ColumnWidthInLumaSamples[i] < 256 || RowHeightInLumaSamples[i] <= 64)
+      if(ColumnWidthInLumaSamples[i] < 256)
+        bWarning = true;
+    }
+
+    for(std::size_t i=0; i <= pPPS -> num_tile_rows_minus1; i++)
+    {
+      if(RowHeightInLumaSamples[i] <= 64)
         bWarning = true;
     }
 
