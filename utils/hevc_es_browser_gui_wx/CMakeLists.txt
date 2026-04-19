@@ -28,7 +28,7 @@ set(SOURCES
 )
 
 # Add executable
-add_executable(hevcesbrowser_gui_wx ${SOURCES})
+add_executable(hevcesbrowser_gui_wx MACOSX_BUNDLE WIN32 ${SOURCES})
 
 # Link libraries
 target_link_libraries(hevcesbrowser_gui_wx
