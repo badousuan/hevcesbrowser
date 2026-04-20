@@ -50,6 +50,7 @@ protected:
     void OnPaint(wxPaintEvent& event);
     void OnKeyDown(wxKeyEvent& event);
     void OnLeftDown(wxMouseEvent& event);
+    void OnLeftUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnSize(wxSizeEvent& event);
     void OnMouseCaptureLost(wxMouseCaptureLostEvent& event);

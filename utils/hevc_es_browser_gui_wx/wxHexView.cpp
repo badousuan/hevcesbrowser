@@ -15,6 +15,7 @@ wxBEGIN_EVENT_TABLE(wxHexView, wxScrolledWindow)
     EVT_PAINT(wxHexView::OnPaint)
     EVT_KEY_DOWN(wxHexView::OnKeyDown)
     EVT_LEFT_DOWN(wxHexView::OnLeftDown)
+    EVT_LEFT_UP(wxHexView::OnLeftUp)
     EVT_MOTION(wxHexView::OnMouseMove)
     EVT_SIZE(wxHexView::OnSize)
     EVT_MOUSE_CAPTURE_LOST(wxHexView::OnMouseCaptureLost)
@@ -272,6 +273,14 @@ void wxHexView::OnLeftDown(wxMouseEvent& event)
         CaptureMouse();
     }
     Refresh();
+}
+
+void wxHexView::OnLeftUp(wxMouseEvent& event)
+{
+    if (HasCapture())
+    {
+        ReleaseMouse();
+    }
 }
 
 void wxHexView::OnMouseMove(wxMouseEvent& event)
