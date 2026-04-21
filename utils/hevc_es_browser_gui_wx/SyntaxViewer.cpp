@@ -391,12 +391,10 @@ void SyntaxViewer::createPPS(std::shared_ptr<HEVC::PPS> pPPS)
         {
             pitemSecond = AppendItem(pitem, "if(!uniform_spacing_flag)");
 
-            wxString str = "column_width_minus1 = {\n\t";
+            wxString str = "column_width_minus1 = {";
             for(int i=0; i<(int)pPPS -> num_tile_columns_minus1 - 1; i++)
             {
                 str += wxString::Format("%lld, ", (long long)pPPS -> column_width_minus1[i]);
-                if((i+1) % 8 == 0)
-                    str += "\n\t";
             }
             if(pPPS -> num_tile_columns_minus1 > 0)
                 str += wxString::Format("%lld \n}", (long long)pPPS -> column_width_minus1[pPPS -> num_tile_columns_minus1 - 1]);
@@ -405,12 +403,10 @@ void SyntaxViewer::createPPS(std::shared_ptr<HEVC::PPS> pPPS)
 
             AppendItem(pitemSecond, str);
 
-            str = "row_height_minus1 = {\n\t";
+            str = "row_height_minus1 = {";
             for(int i=0; i<(int)pPPS -> num_tile_rows_minus1 - 1; i++)
             {
                 str += wxString::Format("%lld, ", (long long)pPPS -> row_height_minus1[i]);
-                if((i+1) % 8 == 0)
-                    str += "\n\t";
             }
             if(pPPS -> num_tile_rows_minus1 > 0)
                 str += wxString::Format("%lld \n}", (long long)pPPS -> row_height_minus1[pPPS -> num_tile_rows_minus1 - 1]);
@@ -523,7 +519,7 @@ void SyntaxViewer::createSlice(std::shared_ptr<HEVC::Slice> pSlice)
         wxString str;
         if(num_extra_slice_header_bits > 0)
         {
-            str = "slice_reserved_undetermined_flag = {\n\t";
+            str = "slice_reserved_undetermined_flag = {";
 
             if(num_extra_slice_header_bits > (long)pSlice -> slice_reserved_undetermined_flag.size())
                 return;
@@ -1074,12 +1070,10 @@ void SyntaxViewer::createProfileTierLevel(const HEVC::ProfileTierLevel &ptl, wxT
     AppendItem(pPtlItem, wxString::Format("general_tier_flag = %lld", (long long)ptl.general_tier_flag));
     AppendItem(pPtlItem, wxString::Format("general_profile_idc = %lld", (long long)ptl.general_profile_idc));
 
-    str = "general_profile_compatibility_flag[i] = { \n\t";
+    str = "general_profile_compatibility_flag[i] = {";
     for(std::size_t i=0; i<31; i++)
     {
         str += wxString::Format("%lld, ", (long long)ptl.general_profile_compatibility_flag[i]);
-        if((i+1) % 8 == 0)
-            str += "\n\t";
     }
     str += wxString::Format("%lld\n}", (long long)ptl.general_profile_compatibility_flag[31]);
     AppendItem(pPtlItem, str);
@@ -1097,22 +1091,18 @@ void SyntaxViewer::createProfileTierLevel(const HEVC::ProfileTierLevel &ptl, wxT
     }
     else
     {
-        str = "sub_layer_profile_present_flag = {\n\t";
+        str = "sub_layer_profile_present_flag = {";
         for(std::size_t i=0; i<ptl.sub_layer_profile_present_flag.size() - 1; i++)
         {
             str += wxString::Format("%lld, ", (long long)ptl.sub_layer_profile_present_flag[i]);
-            if((i+1) % 8 == 0)
-                str += "\n\t";
         }
         str += wxString::Format("%lld \n}", (long long)ptl.sub_layer_profile_present_flag[ptl.sub_layer_profile_present_flag.size() - 1]);
         AppendItem(pPtlItem, str);
 
-        str = "sub_layer_level_present_flag = {\n\t";
+        str = "sub_layer_level_present_flag = {";
         for(std::size_t i=0; i<ptl.sub_layer_profile_present_flag.size() - 1; i++)
         {
             str += wxString::Format("%lld, ", (long long)ptl.sub_layer_level_present_flag[i]);
-            if((i+1) % 8 == 0)
-                str += "\n\t";
         }
         str += wxString::Format("%lld \n}", (long long)ptl.sub_layer_level_present_flag[ptl.sub_layer_profile_present_flag.size() - 1]);
         AppendItem(pPtlItem, str);
@@ -1145,12 +1135,10 @@ void SyntaxViewer::createProfileTierLevel(const HEVC::ProfileTierLevel &ptl, wxT
                 AppendItem(pitem, wxString::Format("sub_layer_tier_flag[%lld] = %lld", (long long)i, (long long)ptl.sub_layer_tier_flag[i]));
                 AppendItem(pitem, wxString::Format("sub_layer_profile_idc[%lld] = %lld", (long long)i, (long long)ptl.sub_layer_profile_idc[i]));
 
-                str = "sub_layer_profile_compatibility_flag = { \n\t";
+                str = "sub_layer_profile_compatibility_flag = { ";
                 for(std::size_t j=0; j<31; j++)
                 {
                     str += wxString::Format("%lld, ", (long long)ptl.sub_layer_profile_compatibility_flag[i][j]);
-                    if((j+1) % 8 == 0)
-                        str += "\n\t";
                 }
                 str += wxString::Format("%lld \n}", (long long)ptl.sub_layer_profile_compatibility_flag[i][31]);
                 AppendItem(pitem, str);
@@ -1726,12 +1714,10 @@ void SyntaxViewer::createActiveParameterSets(std::shared_ptr<HEVC::ActiveParamet
     AppendItem(pItem, wxString::Format("no_parameter_set_update_flag = %lld", (long long)pSeiPayload -> no_parameter_set_update_flag));
     AppendItem(pItem, wxString::Format("num_sps_ids_minus1 = %lld", (long long)pSeiPayload -> num_sps_ids_minus1));
 
-    wxString str = "active_seq_parameter_set_id = {\n\t";
+    wxString str = "active_seq_parameter_set_id = {";
     for (uint32_t i = 0; i < pSeiPayload -> num_sps_ids_minus1; i++)
     {
         str += wxString::Format("%lld,  ", (long long)pSeiPayload -> active_seq_parameter_set_id[i]);
-        if((i + 1) % 8 == 0)
-            str += "\n\t";
     }
 
     str += wxString::Format("%lld\n}", (long long)pSeiPayload -> active_seq_parameter_set_id[pSeiPayload -> num_sps_ids_minus1]);
@@ -1761,12 +1747,10 @@ void SyntaxViewer::createUserDataUnregistered(std::shared_ptr<HEVC::UserDataUnre
     }
     else
     {
-        str = "user_data_payload_byte = {\n\t";
+        str = "user_data_payload_byte = {";
         for (std::size_t i = 0; i < pSei -> user_data_payload_byte.size() - 1; i++)
         {
             str += wxString::Format("%02x", (unsigned int)pSei -> user_data_payload_byte[i]);
-            if((i + 1) % 16 == 0)
-                str += "\n\t";
         }
         str += wxString::Format("%02x\n}", (unsigned int)pSei -> user_data_payload_byte[pSei -> user_data_payload_byte.size() - 1]);
     }
@@ -2293,12 +2277,10 @@ void SyntaxViewer::createChromaResamplingFilterHint(std::shared_ptr<HEVC::Chroma
                 {
                     AppendItem(ploop, wxString::Format("ver_tap_length_minus_1[%lld] = %lld", (long long)i, (long long)pSei -> ver_tap_length_minus_1[i]));
 
-                    wxString str = wxString::Format("ver_filter_coeff[%lld] = {\n\t", (long long)i);
+                    wxString str = wxString::Format("ver_filter_coeff[%lld] = {", (long long)i);
                     for(std::size_t j=0; j<pSei -> ver_tap_length_minus_1[i]; j++)
                     {
                         str += wxString::Format("%lld, ", (long long)pSei -> ver_filter_coeff[i][j]);
-                        if((j+1) % 8 == 0)
-                            str += "\n\t";
                     }
                     str += wxString::Format("%lld \n}", (long long)pSei -> ver_filter_coeff[i][pSei -> ver_tap_length_minus_1[i]]);
 
@@ -2321,12 +2303,10 @@ void SyntaxViewer::createChromaResamplingFilterHint(std::shared_ptr<HEVC::Chroma
                 {
                     AppendItem(ploop, wxString::Format("hor_tap_length_minus_1[%lld] = %lld", (long long)i, (long long)pSei -> hor_tap_length_minus_1[i]));
 
-                    wxString str = wxString::Format("hor_filter_coeff[%lld] = {\n\t", (long long)i);
+                    wxString str = wxString::Format("hor_filter_coeff[%lld] = {", (long long)i);
                     for(std::size_t j=0; j<pSei -> hor_tap_length_minus_1[i]; j++)
                     {
                         str += wxString::Format("%lld, ", (long long)pSei -> hor_filter_coeff[i][j]);
-                        if((j+1) % 8 == 0)
-                            str += "\n\t";
                     }
                     str += wxString::Format("%lld \n}", (long long)pSei -> hor_filter_coeff[i][pSei -> hor_tap_length_minus_1[i]]);
 
