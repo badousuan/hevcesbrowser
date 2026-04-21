@@ -19,6 +19,10 @@ public:
     void setParameretsSets(const VPSMap& vpsMap, const SPSMap& spsMap, const PPSMap& ppsMap);
 
 private:
+    void onRightClick(wxTreeEvent& event);
+    void onKeyDown(wxKeyEvent& event);
+    void copyToClipboard(const wxString& text);
+
     void createVPS(std::shared_ptr<HEVC::VPS> pVPS);
     void createSPS(std::shared_ptr<HEVC::SPS> pSPS);
     void createPPS(std::shared_ptr<HEVC::PPS> pPPS);

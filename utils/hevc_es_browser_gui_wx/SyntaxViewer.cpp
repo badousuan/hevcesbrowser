@@ -1,5 +1,7 @@
 #include "SyntaxViewer.h"
 #include <wx/treectrl.h>
+#include <wx/clipbrd.h>
+#include <wx/menu.h>
 #include <HevcUtils.h>
 #include <ConvToString.h>
 
@@ -16,6 +18,9 @@ SyntaxViewer::SyntaxViewer(wxWindow* parent)
     Bind(wxEVT_TREE_ITEM_EXPANDED, [this](wxTreeEvent& event) {
         m_state.setActive(GetItemText(event.GetItem()), true);
     });
+
+    Bind(wxEVT_TREE_ITEM_RIGHT_CLICK, &SyntaxViewer::onRightClick, this);
+    Bind(wxEVT_KEY_DOWN, &SyntaxViewer::onKeyDown, this);
 }
 
 void SyntaxViewer::setParameretsSets(const VPSMap &vpsMap, const SPSMap &spsMap, const PPSMap &ppsMap)
@@ -2497,4 +2502,47 @@ bool SyntaxViewer::SyntaxViewerState::isActive(const wxString& name) const
 void SyntaxViewer::SyntaxViewerState::setActive(const wxString& name, bool isActive)
 {
     m_state[name] = isActive;
+}
+
+void SyntaxViewer::onRightClick(wxTreeEvent& event)
+{
+    wxTreeItemId itemId = event.GetItem();
+    if (!itemId.IsOk())
+        return;
+
+    SelectItem(itemId);
+
+    wxMenu menu;
+    menu.Append(wxID_COPY, "Copy");
+    
+    Bind(wxEVT_MENU, [this, itemId](wxCommandEvent&) {
+        copyToClipboard(GetItemText(itemId));
+    }, wxID_COPY);
+
+    PopupMenu(&menu);
+}
+
+void SyntaxViewer::onKeyDown(wxKeyEvent& event)
+{
+    if (event.GetKeyCode() == 'C' && event.ControlDown())
+    {
+        wxTreeItemId itemId = GetSelection();
+        if (itemId.IsOk())
+        {
+            copyToClipboard(GetItemText(itemId));
+        }
+    }
+    else
+    {
+        event.Skip();
+    }
+}
+
+void SyntaxViewer::copyToClipboard(const wxString& text)
+{
+    if (wxTheClipboard->Open())
+    {
+        wxTheClipboard->SetData(new wxTextDataObject(text));
+        wxTheClipboard->Close();
+    }
 }
