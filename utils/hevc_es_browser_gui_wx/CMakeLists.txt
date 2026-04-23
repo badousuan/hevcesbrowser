@@ -38,6 +38,7 @@ include_directories(
     ../../hevcparser/include
     ../common
     ${wxWidgets_INCLUDE_DIRS}
+    ../hevc_es_browser_console/src
 )
 
 # Source files
@@ -52,6 +53,7 @@ set(SOURCES
     WarningsViewer.cpp
     main.cpp
     wxHexView.cpp
+    ../hevc_es_browser_console/src/HEVCInfoWriter.cpp
 )
 
 # Add executable
@@ -66,5 +68,12 @@ target_link_libraries(hevcesbrowser_gui_wx
 
 # On macOS, ensure we build a bundle if needed, or just a normal executable
 if(APPLE)
-    # set_target_properties(hevcesbrowser_gui PROPERTIES MACOSX_BUNDLE TRUE)
+    set_target_properties(hevcesbrowser_gui_wx PROPERTIES 
+        MACOSX_BUNDLE TRUE
+        MACOSX_DEPLOYMENT_TARGET "12.0"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.virinext.hevcesbrowser"
+        MACOSX_BUNDLE_BUNDLE_NAME "HEVCESBrowser"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
+    )
 endif()

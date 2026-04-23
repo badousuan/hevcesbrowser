@@ -18,28 +18,23 @@
 #include <wx/stdpaths.h>
 
 #include <HevcParser.h>
+#include <fstream>
 
 // Dummy version if not generated
 #ifndef VERSION_STR
 #define VERSION_STR "1.0.0"
 #endif
 
-wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
-    EVT_MENU(ID_OPEN, MainWindow::OnOpen)
-    EVT_MENU(ID_SHOW_WARNINGS, MainWindow::OnShowWarningsViewer)
-    EVT_MENU(ID_SHOW_INFO, MainWindow::OnShowInfoViewer)
-    EVT_MENU(ID_SHOW_HDR_INFO, MainWindow::OnShowHDRInfoViewer)
-    EVT_MENU(ID_ABOUT, MainWindow::OnAbout)
-    EVT_CLOSE(MainWindow::OnClose)
-wxEND_EVENT_TABLE()
-
 MainWindow::MainWindow(wxWindow* parent)
     : wxFrame(parent, wxID_ANY, "HEVCESBrowser", wxDefaultPosition, wxSize(1024, 768))
 {
+    m_phevcInfoWriter = new HEVCInfoWriter();
+
     // Menu
     wxMenuBar* menuBar = new wxMenuBar();
     wxMenu* fileMenu = new wxMenu();
-    fileMenu->Append(ID_OPEN, "&Open...\tCtrl+O");
+    fileMenu->Append(ID_OPEN_FILE, "&Open...\tCtrl+O");
+    fileMenu->Append(ID_SAVE, "&Save Detailed Info...\tCtrl+S");
     fileMenu->AppendSeparator();
     fileMenu->Append(ID_SHOW_WARNINGS, "Warnings...");
     fileMenu->Append(ID_SHOW_INFO, "Info...");
@@ -49,18 +44,29 @@ MainWindow::MainWindow(wxWindow* parent)
     menuBar->Append(fileMenu, "&File");
 
     wxMenu* helpMenu = new wxMenu();
-    helpMenu->Append(ID_ABOUT, "&About HEVCESBrowser...");
+    helpMenu->Append(ID_ABOUT_APP, "&About HEVCESBrowser...");
     menuBar->Append(helpMenu, "&Help");
 
     SetMenuBar(menuBar);
 
-    // Toolbar (optional, but original had it)
+    // Toolbar
     wxToolBar* toolBar = CreateToolBar();
-    toolBar->AddTool(ID_OPEN, "Open", wxArtProvider::GetBitmap(wxART_FILE_OPEN), "Open HEVC file");
+    toolBar->AddTool(ID_OPEN_FILE, "Open", wxArtProvider::GetBitmap(wxART_FILE_OPEN), "Open HEVC file");
+    toolBar->AddTool(ID_SAVE, "Save", wxArtProvider::GetBitmap(wxART_FILE_SAVE), "Save Detailed Info");
     toolBar->AddTool(ID_SHOW_WARNINGS, "Warnings", wxArtProvider::GetBitmap(wxART_WARNING), "Show Warnings");
     toolBar->AddTool(ID_SHOW_INFO, "Info", wxArtProvider::GetBitmap(wxART_INFORMATION), "Show Stream Info");
     toolBar->AddTool(ID_SHOW_HDR_INFO, "HDR", wxArtProvider::GetBitmap(wxART_REPORT_VIEW), "Show HDR Info");
     toolBar->Realize();
+
+    // Event bindings
+    Bind(wxEVT_MENU, &MainWindow::OnOpen, this, ID_OPEN_FILE);
+    Bind(wxEVT_MENU, &MainWindow::OnSave, this, ID_SAVE);
+    Bind(wxEVT_MENU, &MainWindow::OnShowWarningsViewer, this, ID_SHOW_WARNINGS);
+    Bind(wxEVT_MENU, &MainWindow::OnShowInfoViewer, this, ID_SHOW_INFO);
+    Bind(wxEVT_MENU, &MainWindow::OnShowHDRInfoViewer, this, ID_SHOW_HDR_INFO);
+    Bind(wxEVT_MENU, &MainWindow::OnAbout, this, ID_ABOUT_APP);
+    Bind(wxEVT_MENU, [this](wxCommandEvent&) { Close(true); }, wxID_EXIT);
+    Bind(wxEVT_CLOSE_WINDOW, &MainWindow::OnClose, this);
 
     // Viewers
     m_pwarnViewer = new WarningsViewer(this);
@@ -79,13 +85,15 @@ MainWindow::MainWindow(wxWindow* parent)
 
 MainWindow::~MainWindow()
 {
+    delete m_phevcInfoWriter;
 }
 
 void MainWindow::OnOpen(wxCommandEvent& WXUNUSED(event))
 {
-    wxConfig* config = (wxConfig*)wxConfig::Get();
+    wxConfigBase* config = wxConfigBase::Get();
     wxString prevDir;
-    config->Read("MainWindow/PrevDir", &prevDir);
+    if (config)
+        config->Read("MainWindow/PrevDir", &prevDir);
 
     wxFileDialog openFileDialog(this, "HEVC ES File", prevDir, "", "All files (*.*)|*.*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (openFileDialog.ShowModal() == wxID_CANCEL)
@@ -94,18 +102,36 @@ void MainWindow::OnOpen(wxCommandEvent& WXUNUSED(event))
     openFile(openFileDialog.GetPath());
 }
 
+void MainWindow::OnSave(wxCommandEvent& WXUNUSED(event))
+{
+    wxFileDialog saveFileDialog(this, "Save Detailed HEVC Info", "", "", "Text files (*.txt)|*.txt", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        return;
+
+    std::ofstream fileOut(saveFileDialog.GetPath().ToStdString());
+    if (!fileOut.good())
+    {
+        wxMessageBox("Problem opening output file for writing.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    m_phevcInfoWriter->write(fileOut);
+    wxMessageBox("Detailed info saved successfully.", "Success", wxOK | wxICON_INFORMATION);
+}
+
 void MainWindow::openFile(const wxString& fileName)
 {
     if (fileName.IsEmpty() || !wxFileExists(fileName))
         return;
 
-    wxConfig* config = (wxConfig*)wxConfig::Get();
+    wxConfigBase* config = wxConfigBase::Get();
     
     m_pcentralWidget->m_pcomInfoViewer->clear();
     m_pcentralWidget->m_psyntaxViewer->DeleteAllItems();
     ((WarningsViewer*)m_pwarnViewer)->clear();
     ((StreamInfoViewer*)m_pinfoViewer)->clear();
     ((HDRInfoViewer*)m_phdrInfoViewer)->clear();
+    // No explicit clear for m_phevcInfoWriter in its header, but it will be replaced/reused in process if we handle it there
 
     wxString input_fileName = fileName;
     wxString tmp265File = "";
@@ -137,7 +163,8 @@ void MainWindow::openFile(const wxString& fileName)
     process(input_fileName);
 
     wxFileName fn(fileName);
-    config->Write("MainWindow/PrevDir", fn.GetPath());
+    if (config)
+        config->Write("MainWindow/PrevDir", fn.GetPath());
     SetTitle(fn.GetFullName());
 
     if (!tmp265File.IsEmpty() && wxFileExists(tmp265File))
@@ -155,11 +182,17 @@ void MainWindow::process(const wxString& fileName)
         return;
     }
 
+    // Re-create or reset the writer? HEVCInfoWriter doesn't have a clear.
+    // Let's just create a new one every time we process a file.
+    delete m_phevcInfoWriter;
+    m_phevcInfoWriter = new HEVCInfoWriter();
+
     HEVC::Parser* pparser = HEVC::Parser::create();
     pparser->addConsumer(m_pcentralWidget->m_pcomInfoViewer);
     pparser->addConsumer((WarningsViewer*)m_pwarnViewer);
     pparser->addConsumer((StreamInfoViewer*)m_pinfoViewer);
     pparser->addConsumer((HDRInfoViewer*)m_phdrInfoViewer);
+    pparser->addConsumer(m_phevcInfoWriter);
 
     ProfileConformanceAnalyzer profConfAnalyzer;
     profConfAnalyzer.m_pconsumer = (WarningsViewer*)m_pwarnViewer;
@@ -183,13 +216,10 @@ void MainWindow::process(const wxString& fileName)
         
         file.Seek(position);
         
-        int percent = (int)(position * 100 / fileSize);
+        int percent = (fileSize > 0) ? (int)(position * 100 / fileSize) : 0;
         if (!progressDialog.Update(percent))
             break; // Cancelled
     }
-
-    // Update last NALU length if needed (simplified from original logic)
-    // ...
 
     file.Seek(0);
     m_pcentralWidget->m_phexViewer->setData(new wxHexView::DataStorageFile(fileName));
@@ -241,7 +271,8 @@ void MainWindow::OnAbout(wxCommandEvent& WXUNUSED(event))
 
 void MainWindow::saveCustomData()
 {
-    wxConfig* config = (wxConfig*)wxConfig::Get();
+    wxConfigBase* config = wxConfigBase::Get();
+    if (!config) return;
     int w, h, x, y;
     GetSize(&w, &h);
     GetPosition(&x, &y);
@@ -253,12 +284,15 @@ void MainWindow::saveCustomData()
 
 void MainWindow::readCustomData()
 {
-    wxConfig* config = (wxConfig*)wxConfig::Get();
+    wxConfigBase* config = wxConfigBase::Get();
     int w = 1024, h = 768, x = -1, y = -1;
-    config->Read("MainWindow/width", &w);
-    config->Read("MainWindow/height", &h);
-    config->Read("MainWindow/x", &x);
-    config->Read("MainWindow/y", &y);
+    if (config)
+    {
+        config->Read("MainWindow/width", &w);
+        config->Read("MainWindow/height", &h);
+        config->Read("MainWindow/x", &x);
+        config->Read("MainWindow/y", &y);
+    }
     if (x != -1 && y != -1)
         SetSize(x, y, w, h);
     else

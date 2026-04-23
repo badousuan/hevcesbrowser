@@ -116,9 +116,10 @@ int main(int argc, char **argv) {
         HEVC::Parser *pparser = HEVC::Parser::create();
         std::unique_ptr<HEVC::Parser::Consumer> consumer;
 
-        if (result["deps"].as<bool>()) {
-            consumer.reset(new FrameDependencyAnalyzer());
-        } else if (result["altwriter"].as<bool>()) {
+//        if (result["deps"].as<bool>()) {
+//            consumer.reset(new FrameDependencyAnalyzer());
+//        } else
+        if (result["altwriter"].as<bool>()) {
             consumer.reset(new HEVCInfoAltWriter());
         } else {
             consumer.reset(new HEVCInfoWriter());
@@ -131,9 +132,10 @@ int main(int argc, char **argv) {
         *pout << "Input file: " << inPath << std::endl;
         *pout << "=======================" << std::endl;
 
-        if (result["deps"].as<bool>()) {
-            dynamic_cast<FrameDependencyAnalyzer*>(consumer.get())->writeDependencies(*pout);
-        } else {
+//        if (result["deps"].as<bool>()) {
+//            dynamic_cast<FrameDependencyAnalyzer*>(consumer.get())->writeDependencies(*pout);
+//        } else
+        {
             dynamic_cast<HEVCInfoWriter*>(consumer.get())->write(*pout);
         }
 

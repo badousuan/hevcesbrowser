@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "macOS Deployment Target")
+
 project(hevcBrowser)
 
 set (BUILD_DIR

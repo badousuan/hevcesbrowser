@@ -3,6 +3,7 @@
 
 #include <wx/wx.h>
 #include <wx/dnd.h>
+#include <HEVCInfoWriter.h>
 
 class CentralWidget;
 
@@ -16,6 +17,7 @@ public:
 
 private:
     void OnOpen(wxCommandEvent& event);
+    void OnSave(wxCommandEvent& event);
     void OnShowWarningsViewer(wxCommandEvent& event);
     void OnShowInfoViewer(wxCommandEvent& event);
     void OnShowHDRInfoViewer(wxCommandEvent& event);
@@ -47,17 +49,17 @@ private:
     wxWindow* m_pinfoViewer;
     wxWindow* m_phdrInfoViewer;
     CentralWidget* m_pcentralWidget;
-
-    wxDECLARE_EVENT_TABLE();
+    HEVCInfoWriter* m_phevcInfoWriter;
 };
 
 enum
 {
-    ID_OPEN = wxID_OPEN,
-    ID_SHOW_WARNINGS = wxID_HIGHEST + 1,
+    ID_OPEN_FILE = wxID_HIGHEST + 1,
+    ID_SAVE,
+    ID_SHOW_WARNINGS,
     ID_SHOW_INFO,
     ID_SHOW_HDR_INFO,
-    ID_ABOUT = wxID_ABOUT
+    ID_ABOUT_APP = wxID_ABOUT
 };
 
 #endif
