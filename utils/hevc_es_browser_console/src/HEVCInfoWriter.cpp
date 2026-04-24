@@ -330,15 +330,16 @@ void HEVCInfoWriter::writePPS(std::shared_ptr<HEVC::PPS> pPPS, std::ostream &out
     {
       out << "\t" << "if( !uniform_spacing_flag )" << std::endl;
 
-      out << "\t\t\t" << "column_width_minus1 = { " << std::endl;
-      for(std::size_t i=0; i<pPPS -> num_tile_columns_minus1 - 1; i++)
+      out << "\t\t\t" << "column_width_minus1 = { ";
+      for(std::size_t i=0; i<pPPS -> num_tile_columns_minus1; i++)
         out << (int)  pPPS -> column_width_minus1[i] << ", ";
-      out << (int) pPPS -> column_width_minus1[pPPS -> num_tile_columns_minus1 - 1] << " }" << std::endl;
+      out << (int) pPPS -> column_width_minus1[pPPS -> num_tile_columns_minus1 ] << " }" << std::endl;
 
-      out << "\t\t\t" << "num_tile_rows_minus1 = { " << std::endl;
-      for(std::size_t i=0; i<pPPS -> num_tile_rows_minus1 - 1; i++)
+      out << "\t\t\t" << "num_tile_rows_minus1 = { ";
+        int xx  = pPPS -> num_tile_rows_minus1 - 1;
+      for(std::size_t i=0; i<pPPS -> num_tile_rows_minus1; i++)
         out << (int)  pPPS -> row_height_minus1[i] << ", ";
-      out << (int) pPPS -> row_height_minus1[pPPS -> num_tile_rows_minus1 - 1] << " }" << std::endl;
+      out << (int) pPPS -> row_height_minus1[pPPS -> num_tile_rows_minus1 ] << " }" << std::endl;
     }
 
     out << "\t\t" << "uniform_spacing_flag = " << (int) pPPS -> uniform_spacing_flag << std::endl;

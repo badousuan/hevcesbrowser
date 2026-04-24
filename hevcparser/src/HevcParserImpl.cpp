@@ -1115,11 +1115,11 @@ void HevcParserImpl::processPPS(std::shared_ptr<PPS> ppps, BitstreamReader &bs, 
 
     if(!ppps -> uniform_spacing_flag)
     {
-      ppps -> column_width_minus1.resize(ppps -> num_tile_columns_minus1);
+      ppps -> column_width_minus1.resize(ppps -> num_tile_columns_minus1 + 1);
       for(std::size_t i=0; i<ppps -> num_tile_columns_minus1; i++)
         ppps -> column_width_minus1[i] = bs.getGolombU();
 
-      ppps -> row_height_minus1.resize(ppps -> num_tile_rows_minus1);
+      ppps -> row_height_minus1.resize(ppps -> num_tile_rows_minus1 + 1);
       for(std::size_t i=0; i<ppps -> num_tile_rows_minus1; i++)
         ppps -> row_height_minus1[i] = bs.getGolombU();
     }
